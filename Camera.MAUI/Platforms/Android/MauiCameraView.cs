@@ -53,8 +53,6 @@ internal class MauiCameraView : GridLayout
     private Handler backgroundHandler;
     private ImageReader imgReader;
 
-    private bool supportsZoomRatio = false;
-
 
     public MauiCameraView(Context context, CameraView cameraView) : base(context)
     {
@@ -107,11 +105,10 @@ internal class MauiCameraView : GridLayout
                     cameraInfo.Position = CameraPosition.Unknown;
                 }
 
-                if (OperatingSystem.IsAndroidVersionAtLeast(30) && camChars.Get(CameraCharacteristics.ControlZoomRatioRange) is Range zoomRatioRange)
+                if (OperatingSystem.IsAndroidVersionAtLeast(30) && chars.Get(CameraCharacteristics.ControlZoomRatioRange) is Range zoomRatioRange)
                 {
                     cameraInfo.MinZoomFactor = ((Java.Lang.Number)zoomRatioRange.Lower).FloatValue();
                     cameraInfo.MaxZoomFactor = ((Java.Lang.Number)zoomRatioRange.Upper).FloatValue();
-                    supportsZoomRatio = true;
                 }
                 else
                 {
@@ -530,7 +527,7 @@ internal class MauiCameraView : GridLayout
 
     internal void ApplyZoom(float zoom, CaptureRequest.Builder builder)
     {
-        if (supportsZoomRatio)
+        if (OperatingSystem.IsAndroidVersionAtLeast(30) && camChars.Get(CameraCharacteristics.ControlZoomRatioRange) != null)
         {
             float clampedZoom = Math.Clamp(zoom, cameraView.Camera.MinZoomFactor, cameraView.Camera.MaxZoomFactor);
             builder.Set(CaptureRequest.ControlZoomRatio, Java.Lang.Float.ValueOf(clampedZoom));
