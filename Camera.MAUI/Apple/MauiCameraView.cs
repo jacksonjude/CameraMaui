@@ -85,7 +85,9 @@ internal class MauiCameraView : UIView, IAVCaptureVideoDataOutputSampleBufferDel
                 camDevices = deviceDiscoverySession.Devices;
                 cameraView.Cameras.Clear();
 
-                float? wideAngleZoomFactor = null;
+                Dictionary<AVCaptureDeviceType, float> deviceTypeScales = new();
+                float virtualDeviceScale = 1.0f;
+
                 if (OperatingSystem.IsIOSVersionAtLeast(13))
                 {
                     var virtualDevice = camDevices.FirstOrDefault(d => d.DeviceType == AVCaptureDeviceType.BuiltInTripleCamera) 
@@ -93,17 +95,22 @@ internal class MauiCameraView : UIView, IAVCaptureVideoDataOutputSampleBufferDel
                     if (virtualDevice != null)
                     {
                         var virtualZoomFactors = new float[] { 1 }
-                            .Concat(
-                                virtualDevice.VirtualDeviceSwitchOverVideoZoomFactors
-                                    .Select(n => n.FloatValue)
-                            ).ToList();
-                        var wideAngleIndex = virtualDevice.ConstituentDevices
-                            .ToList()
-                            .FindIndex(d => d.DeviceType == AVCaptureDeviceType.BuiltInWideAngleCamera);
-
+                            .Concat(virtualDevice.VirtualDeviceSwitchOverVideoZoomFactors.Select(n => n.FloatValue))
+                            .ToList();
+        
+                        var constituentDevices = virtualDevice.ConstituentDevices.ToList();
+                        var wideAngleIndex = constituentDevices.FindIndex(d => d.DeviceType == AVCaptureDeviceType.BuiltInWideAngleCamera);
+        
                         if (wideAngleIndex >= 0)
                         {
-                            wideAngleZoomFactor = virtualZoomFactors[wideAngleIndex];
+                            float wideAngleZoomFactor = virtualZoomFactors[wideAngleIndex];
+            
+                            for (int i = 0; i < constituentDevices.Count && i < virtualZoomFactors.Count; i++)
+                            {
+                                deviceTypeScales[constituentDevices[i].DeviceType] = virtualZoomFactors[i] / wideAngleZoomFactor;
+                            }
+            
+                            virtualDeviceScale = 1.0f / wideAngleZoomFactor;
                         }
                     }
                 }
@@ -123,9 +130,20 @@ internal class MauiCameraView : UIView, IAVCaptureVideoDataOutputSampleBufferDel
                     {
                         zoomFactorScale = (float)device.DisplayVideoZoomFactorMultiplier;
                     }
-                    else if (position == CameraPosition.Back && wideAngleZoomFactor is float wideAngleFactor)
+                    else if (position == CameraPosition.Back)
                     {
-                        zoomFactorScale = 1 / wideAngleFactor;
+                        if (device.DeviceType is AVCaptureDeviceType.BuiltInDualWideCamera or AVCaptureDeviceType.BuiltInTripleCamera)
+                        {
+                            zoomFactorScale = virtualDeviceScale;
+                        }
+                        else if (deviceTypeScales.TryGetValue(device.DeviceType, out float scale))
+                        {
+                            zoomFactorScale = scale;
+                        }
+                        else
+                        {
+                            zoomFactorScale = 1.0f;
+                        }
                     }
                     else
                     {
