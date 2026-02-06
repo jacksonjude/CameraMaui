@@ -97,19 +97,18 @@ internal class MauiCameraView : UIView, IAVCaptureVideoDataOutputSampleBufferDel
                         var virtualZoomFactors = new float[] { 1 }
                             .Concat(virtualDevice.VirtualDeviceSwitchOverVideoZoomFactors.Select(n => n.FloatValue))
                             .ToList();
-        
+
                         var constituentDevices = virtualDevice.ConstituentDevices.ToList();
                         var wideAngleIndex = constituentDevices.FindIndex(d => d.DeviceType == AVCaptureDeviceType.BuiltInWideAngleCamera);
-        
+
                         if (wideAngleIndex >= 0)
                         {
                             float wideAngleZoomFactor = virtualZoomFactors[wideAngleIndex];
-            
+
                             for (int i = 0; i < constituentDevices.Count && i < virtualZoomFactors.Count; i++)
                             {
                                 deviceTypeScales[constituentDevices[i].DeviceType] = virtualZoomFactors[i] / wideAngleZoomFactor;
                             }
-            
                             virtualDeviceScale = 1.0f / wideAngleZoomFactor;
                         }
                     }
